@@ -1,23 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hash } from "bcryptjs";
 import { getSupabase } from "@/lib/supabase";
 import { createSession } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { business_name, contact_name, email, phone, password, state } = body;
+    const { business_name, contact_name, email, phone } = body;
 
-    if (!business_name || !email || !password) {
+    if (!business_name || !email) {
       return NextResponse.json(
-        { error: "Business name, email, and password are required" },
-        { status: 400 }
-      );
-    }
-
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters" },
+        { error: "Business name and email are required" },
         { status: 400 }
       );
     }
@@ -26,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     // Check if email already exists
     const { data: existing } = await db
-      .from("ad_providers")
+      .from("ad_accounts")
       .select("id")
       .eq("email", email.toLowerCase().trim())
       .single();
@@ -38,19 +30,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Hash password
-    const password_hash = await hash(password, 12);
-
-    // Create provider
-    const { data: provider, error: dbError } = await db
-      .from("ad_providers")
+    // Create account
+    const { data: account, error: dbError } = await db
+      .from("ad_accounts")
       .insert({
         business_name: business_name.trim(),
         contact_name: contact_name?.trim() || null,
         email: email.toLowerCase().trim(),
         phone: phone?.trim() || null,
-        password_hash,
-        state: state || "SA",
+        status: "active",
+        balance_cents: 0,
+        total_spent_cents: 0,
       })
       .select("id")
       .single();
@@ -61,9 +51,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Create session
-    await createSession(provider.id);
+    await createSession(account.id);
 
-    return NextResponse.json({ ok: true, provider_id: provider.id });
+    return NextResponse.json({ ok: true, account_id: account.id });
   } catch (err) {
     console.error("Signup error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

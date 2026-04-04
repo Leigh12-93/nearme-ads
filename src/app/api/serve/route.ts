@@ -28,24 +28,13 @@ export async function GET(req: NextRequest) {
 
   const sb = getSupabase();
 
-  // Look up vertical ID by slug
-  const { data: verticalRow } = await sb
-    .from("verticals")
-    .select("id")
-    .eq("slug", vertical)
-    .single();
-
-  if (!verticalRow) {
-    return NextResponse.json({ ok: false, error: "unknown vertical" }, { status: 404 });
-  }
-
-  // Join campaigns with providers to get business details
+  // Query active campaigns for this vertical (vertical is stored as a string slug)
   const { data: campaigns, error } = await sb
     .from("ad_campaigns")
-    .select("id, provider_id, per_lead_bid, monthly_budget, month_spend, target_areas, boost_score, ad_providers(business_name, phone, website)")
-    .eq("vertical_id", verticalRow.id)
-    .eq("status", "active")
-    .order("boost_score", { ascending: false })
+    .select("id, account_id, provider_name, provider_phone, provider_website, bid_per_lead_cents, monthly_budget_cents, spent_this_month_cents, service_areas")
+    .eq("vertical", vertical)
+    .eq("active", true)
+    .order("bid_per_lead_cents", { ascending: false })
     .limit(50);
 
   if (error) {
@@ -53,11 +42,11 @@ export async function GET(req: NextRequest) {
   }
 
   // Filter by budget remaining and area match
-  const eligible = (campaigns || []).filter((c: Record<string, unknown>) => {
-    const spent = Number(c.month_spend) || 0;
-    const budget = Number(c.monthly_budget) || Infinity;
+  const eligible = (campaigns || []).filter((c) => {
+    const spent = c.spent_this_month_cents || 0;
+    const budget = c.monthly_budget_cents || Infinity;
     if (spent >= budget) return false;
-    const areas: string[] = (c.target_areas as string[]) || [];
+    const areas: string[] = (c.service_areas as string[]) || [];
     if (areas.length === 0) return true;
     return areas.some((a: string) => {
       const al = a.toLowerCase().trim();
@@ -68,12 +57,11 @@ export async function GET(req: NextRequest) {
   // Log impressions asynchronously
   if (eligible.length > 0) {
     sb.from("ad_impressions").insert(
-      eligible.map((c: Record<string, unknown>, i: number) => ({
+      eligible.map((c, i: number) => ({
         campaign_id: c.id,
-        provider_id: (c as Record<string, unknown>).provider_id,
-        vertical_id: verticalRow.id,
-        search_postcode: postcode || null,
-        search_query: suburb || null,
+        suburb: suburb || null,
+        postcode: postcode || null,
+        site,
         position: i + 1,
       }))
     ).then(() => {});
@@ -84,15 +72,12 @@ export async function GET(req: NextRequest) {
     vertical,
     suburb,
     postcode,
-    providers: eligible.map((c: Record<string, unknown>) => {
-      const prov = c.ad_providers as Record<string, unknown> | null;
-      return {
-        campaign_id: c.id,
-        name: prov?.business_name || "Provider",
-        phone: prov?.phone || null,
-        website: prov?.website || null,
-      };
-    }),
+    providers: eligible.map((c) => ({
+      campaign_id: c.id,
+      name: c.provider_name || "Provider",
+      phone: c.provider_phone || null,
+      website: c.provider_website || null,
+    })),
   });
   res.headers.set("Access-Control-Allow-Origin", "*");
   return res;

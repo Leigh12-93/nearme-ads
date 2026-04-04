@@ -38,10 +38,9 @@ export default function NewCampaignPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          vertical_id: selectedVertical,
-          budget_type: budgetType,
-          monthly_budget: budgetType === "monthly" ? parseFloat(monthlyBudget) : null,
-          per_lead_bid: budgetType === "per_lead" ? parseFloat(perLeadBid) : null,
+          vertical: selectedVertical,
+          monthly_budget_cents: budgetType === "monthly" ? Math.round(parseFloat(monthlyBudget) * 100) : null,
+          bid_per_lead_cents: budgetType === "per_lead" ? Math.round(parseFloat(perLeadBid) * 100) : null,
         }),
       });
       const data = await res.json();
@@ -96,12 +95,12 @@ export default function NewCampaignPage() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {verticals.map((v) => (
                 <button
-                  key={v.id}
+                  key={v.slug}
                   type="button"
-                  onClick={() => setSelectedVertical(v.id)}
+                  onClick={() => setSelectedVertical(v.slug)}
                   className={cn(
                     "rounded-xl border-2 p-4 text-left transition-all",
-                    selectedVertical === v.id
+                    selectedVertical === v.slug
                       ? VERTICAL_COLORS[v.slug] || "border-brand bg-brand-light"
                       : "border-border bg-white hover:border-border-strong"
                   )}

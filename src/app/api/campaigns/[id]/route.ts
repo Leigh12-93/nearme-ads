@@ -6,8 +6,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const providerId = await getSession();
-  if (!providerId) {
+  const accountId = await getSession();
+  if (!accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -19,30 +19,37 @@ export async function PATCH(
     // Only allow updating own campaigns
     const { data: campaign } = await db
       .from("ad_campaigns")
-      .select("id, provider_id")
+      .select("id, account_id")
       .eq("id", id)
       .single();
 
-    if (!campaign || campaign.provider_id !== providerId) {
+    if (!campaign || campaign.account_id !== accountId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     // Allowed fields to update
     const updates: Record<string, unknown> = {};
-    if (body.status && ["active", "paused"].includes(body.status)) {
-      updates.status = body.status;
+    if (body.active !== undefined) {
+      updates.active = body.active;
     }
-    if (body.monthly_budget !== undefined) {
-      updates.monthly_budget = body.monthly_budget;
+    if (body.monthly_budget_cents !== undefined) {
+      updates.monthly_budget_cents = body.monthly_budget_cents;
     }
-    if (body.per_lead_bid !== undefined) {
-      updates.per_lead_bid = body.per_lead_bid;
+    if (body.bid_per_lead_cents !== undefined) {
+      updates.bid_per_lead_cents = body.bid_per_lead_cents;
     }
-    if (body.daily_budget_cap !== undefined) {
-      updates.daily_budget_cap = body.daily_budget_cap;
+    if (body.provider_name !== undefined) {
+      updates.provider_name = body.provider_name;
     }
-
-    updates.updated_at = new Date().toISOString();
+    if (body.provider_phone !== undefined) {
+      updates.provider_phone = body.provider_phone;
+    }
+    if (body.provider_website !== undefined) {
+      updates.provider_website = body.provider_website;
+    }
+    if (body.service_areas !== undefined) {
+      updates.service_areas = body.service_areas;
+    }
 
     const { error: dbError } = await db
       .from("ad_campaigns")

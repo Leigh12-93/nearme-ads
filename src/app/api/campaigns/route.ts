@@ -3,32 +3,18 @@ import { getSession } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
-  const providerId = await getSession();
-  if (!providerId) {
+  const accountId = await getSession();
+  if (!accountId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const body = await req.json();
-    const { vertical_id, budget_type, monthly_budget, per_lead_bid } = body;
+    const { vertical, monthly_budget_cents, bid_per_lead_cents, provider_name, provider_phone, provider_website, service_areas } = body;
 
-    if (!vertical_id || !budget_type) {
+    if (!vertical) {
       return NextResponse.json(
-        { error: "Vertical and budget type are required" },
-        { status: 400 }
-      );
-    }
-
-    if (budget_type === "per_lead" && (!per_lead_bid || per_lead_bid < 2)) {
-      return NextResponse.json(
-        { error: "Minimum bid is $2 per lead" },
-        { status: 400 }
-      );
-    }
-
-    if (budget_type === "monthly" && (!monthly_budget || monthly_budget < 49)) {
-      return NextResponse.json(
-        { error: "Minimum monthly budget is $49" },
+        { error: "Vertical is required" },
         { status: 400 }
       );
     }
@@ -39,8 +25,8 @@ export async function POST(req: NextRequest) {
     const { data: existing } = await db
       .from("ad_campaigns")
       .select("id")
-      .eq("provider_id", providerId)
-      .eq("vertical_id", vertical_id)
+      .eq("account_id", accountId)
+      .eq("vertical", vertical)
       .single();
 
     if (existing) {
@@ -53,13 +39,17 @@ export async function POST(req: NextRequest) {
     const { data: campaign, error: dbError } = await db
       .from("ad_campaigns")
       .insert({
-        provider_id: providerId,
-        vertical_id,
-        budget_type,
-        monthly_budget: budget_type === "monthly" ? monthly_budget : null,
-        per_lead_bid: budget_type === "per_lead" ? per_lead_bid : null,
-        status: "active",
-        boost_score: budget_type === "per_lead" ? per_lead_bid : monthly_budget / 49,
+        account_id: accountId,
+        vertical,
+        name: `${vertical} campaign`,
+        monthly_budget_cents: monthly_budget_cents || null,
+        bid_per_lead_cents: bid_per_lead_cents || 200, // Default $2/lead
+        provider_name: provider_name || null,
+        provider_phone: provider_phone || null,
+        provider_website: provider_website || null,
+        service_areas: service_areas || [],
+        active: true,
+        spent_this_month_cents: 0,
       })
       .select("id")
       .single();

@@ -1,66 +1,53 @@
 export interface Vertical {
-  id: string;
   slug: string;
   name: string;
   domain: string;
   service_type: string;
-  icon?: string;
   active: boolean;
 }
 
-export interface AdProvider {
+export interface AdAccount {
   id: string;
   email: string;
   business_name: string;
   contact_name?: string;
   phone?: string;
-  website?: string;
-  abn?: string;
-  state: string;
-  service_areas?: string[];
-  logo_url?: string;
-  verified: boolean;
-  active: boolean;
+  status: string;
   stripe_customer_id?: string;
+  balance_cents: number;
+  total_spent_cents: number;
   created_at: string;
 }
 
 export interface Campaign {
   id: string;
-  provider_id: string;
-  vertical_id: string;
-  budget_type: "monthly" | "per_lead";
-  monthly_budget?: number;
-  per_lead_bid?: number;
-  daily_budget_cap?: number;
-  target_areas?: string[];
-  target_services?: string[];
-  status: "active" | "paused" | "exhausted" | "draft";
-  month_spend: number;
-  month_leads: number;
-  month_impressions: number;
-  month_clicks: number;
-  boost_score: number;
+  account_id: string;
+  vertical: string;
+  name: string;
+  monthly_budget_cents?: number;
+  bid_per_lead_cents?: number;
+  spent_this_month_cents: number;
+  service_areas?: string[];
+  provider_name?: string;
+  provider_phone?: string;
+  provider_website?: string;
+  ad_copy?: string;
+  active: boolean;
   created_at: string;
-  // Joined
-  vertical?: Vertical;
+  // Derived in dashboard
+  vertical_slug?: string;
+  vertical_name?: string;
 }
 
 export interface Lead {
   id: string;
   campaign_id: string;
-  provider_id: string;
-  vertical_id: string;
-  customer_name?: string;
-  customer_phone?: string;
-  customer_email?: string;
-  customer_suburb?: string;
-  customer_postcode?: string;
-  service_details?: string;
-  charge_amount: number;
-  charged: boolean;
-  status: "new" | "contacted" | "won" | "lost";
-  created_at: string;
+  suburb?: string;
+  postcode?: string;
+  site?: string;
+  fee_cents: number;
+  billed: boolean;
+  ts: string;
 }
 
 export interface DashboardStats {

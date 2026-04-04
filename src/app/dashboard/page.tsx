@@ -16,8 +16,23 @@ import {
   Settings,
   TrendingUp,
 } from "lucide-react";
-import type { Campaign, DashboardStats } from "@/lib/types";
+import type { DashboardStats } from "@/lib/types";
 import { formatCurrency, formatNumber, formatPercent, cn } from "@/lib/utils";
+
+interface DashboardCampaign {
+  id: string;
+  vertical: string;
+  vertical_slug?: string;
+  vertical_name?: string;
+  name: string;
+  monthly_budget_cents?: number;
+  bid_per_lead_cents?: number;
+  spent_this_month_cents: number;
+  service_areas?: string[];
+  provider_name?: string;
+  active: boolean;
+  created_at: string;
+}
 
 const VERTICALS_MAP: Record<string, { name: string; color: string }> = {
   "skip-bins": { name: "Skip Bins", color: "bg-orange-100 text-orange-700" },
@@ -67,7 +82,7 @@ export default function DashboardPage() {
     ctr: 0,
     cost_per_lead: 0,
   });
-  const [campaigns, setCampaigns] = useState<(Campaign & { vertical_slug?: string })[]>([]);
+  const [campaigns, setCampaigns] = useState<DashboardCampaign[]>([]);
   const [businessName, setBusinessName] = useState("Your Business");
   const [loading, setLoading] = useState(true);
 
@@ -92,14 +107,14 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  async function toggleCampaign(id: string, newStatus: string) {
+  async function toggleCampaign(id: string, newActive: boolean) {
     await fetch(`/api/campaigns/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({ active: newActive }),
     });
     setCampaigns((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: newStatus as Campaign["status"] } : c))
+      prev.map((c) => (c.id === id ? { ...c, active: newActive } : c))
     );
   }
 
@@ -192,10 +207,14 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {campaigns.map((c) => {
-                const v = VERTICALS_MAP[c.vertical_slug || ""] || {
-                  name: "Unknown",
+                const v = VERTICALS_MAP[c.vertical_slug || c.vertical || ""] || {
+                  name: c.vertical_name || "Unknown",
                   color: "bg-gray-100 text-gray-700",
                 };
+                const budgetDisplay = c.monthly_budget_cents
+                  ? `${formatCurrency(c.monthly_budget_cents / 100)}/mo`
+                  : `${formatCurrency((c.bid_per_lead_cents || 0) / 100)}/lead`;
+                const spentDisplay = formatCurrency((c.spent_this_month_cents || 0) / 100);
                 return (
                   <div
                     key={c.id}
@@ -212,46 +231,35 @@ export default function DashboardPage() {
                       </span>
                       <div>
                         <p className="text-sm font-medium text-text">
-                          {c.budget_type === "monthly"
-                            ? `${formatCurrency(c.monthly_budget || 0)}/mo`
-                            : `${formatCurrency(c.per_lead_bid || 0)}/lead`}
+                          {budgetDisplay}
                         </p>
-                        <p className="text-xs text-text-dim">
-                          {formatNumber(c.month_impressions)} imp &middot;{" "}
-                          {formatNumber(c.month_clicks)} clicks &middot;{" "}
-                          {formatNumber(c.month_leads)} leads
-                        </p>
+                        {c.provider_name && (
+                          <p className="text-xs text-text-dim">{c.provider_name}</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5">
                         <TrendingUp className="h-3.5 w-3.5 text-success" />
                         <span className="text-sm font-medium text-text">
-                          {formatCurrency(c.month_spend)}
+                          {spentDisplay}
                         </span>
                       </div>
                       <span
                         className={cn(
                           "rounded-full px-2 py-0.5 text-xs font-medium",
-                          c.status === "active"
+                          c.active
                             ? "bg-success-light text-success"
-                            : c.status === "paused"
-                            ? "bg-warning-light text-warning"
-                            : "bg-danger-light text-danger"
+                            : "bg-warning-light text-warning"
                         )}
                       >
-                        {c.status}
+                        {c.active ? "active" : "paused"}
                       </span>
                       <button
-                        onClick={() =>
-                          toggleCampaign(
-                            c.id,
-                            c.status === "active" ? "paused" : "active"
-                          )
-                        }
+                        onClick={() => toggleCampaign(c.id, !c.active)}
                         className="rounded-lg border border-border p-1.5 hover:bg-surface-hover transition-colors"
                       >
-                        {c.status === "active" ? (
+                        {c.active ? (
                           <Pause className="h-3.5 w-3.5 text-text-dim" />
                         ) : (
                           <Play className="h-3.5 w-3.5 text-text-dim" />
